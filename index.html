@@ -320,15 +320,14 @@ tr:hover td{background:var(--surface2);}
       <div class="form-group"><label>Transfer Date</label><input type="date" id="t-date"/></div>
       <div class="form-group"><label>Requested By</label><input type="text" id="t-requested-by" placeholder="Name of person who requested transfer"/></div>
       <div class="form-group full">
-        <label>Attachment Link (Outlook / OneDrive)</label>
-        <div style="display:flex;gap:8px;align-items:center;">
-          <input type="text" id="t-attachment" placeholder="https://..." autocomplete="off" spellcheck="false" style="flex:1;"
-            onpaste="event.preventDefault();var t=(event.clipboardData||window.clipboardData).getData('text/plain');this.value=t.trim();"
-          />
-          <button type="button" onclick="(async()=>{try{var t=await navigator.clipboard.readText();document.getElementById('t-attachment').value=t.trim();document.getElementById('paste-btn').textContent='✓ Done';}catch(e){document.getElementById('paste-btn').textContent='Allow Access';}setTimeout(()=>{document.getElementById('paste-btn').textContent='📋 Paste';},1500);})()" id="paste-btn"
-            style="background:var(--surface2);border:1px solid var(--border);color:var(--text-muted);padding:8px 14px;border-radius:var(--radius);cursor:pointer;font-size:12px;white-space:nowrap;flex-shrink:0;">
-            📋 Paste
-          </button>
+        <label>PDF Attachment</label>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <input type="text" id="t-attachment" placeholder="رابط الـ PDF هيظهر هنا تلقائي..." autocomplete="off" spellcheck="false" style="flex:1;min-width:200px;" onpaste="event.preventDefault();var t=(event.clipboardData||window.clipboardData).getData('text/plain');this.value=t.trim();"/>
+          <label id="upload-btn-label" style="background:var(--accent);color:#000;padding:8px 14px;border-radius:var(--radius);cursor:pointer;font-size:12px;white-space:nowrap;flex-shrink:0;font-weight:600;display:inline-flex;align-items:center;gap:4px;">
+            📎 Upload PDF
+            <input type="file" accept="application/pdf" style="display:none;" onchange="uploadToCloudinary(this)"/>
+          </label>
+          <span id="upload-status" style="font-size:12px;color:var(--text-muted);"></span>
         </div>
       </div>
       <div class="form-group full"><label>Notes</label><textarea id="t-notes" rows="2"></textarea></div>
@@ -377,6 +376,39 @@ function getOd(p){
   for(const [k,v] of Object.entries(OD_MAP)) if(k.toLowerCase()===l) return v;
   return '';
 }
+
+// ─── CLOUDINARY UPLOAD ───
+const CLOUDINARY_CLOUD = 'cpdekxev';
+const CLOUDINARY_PRESET = 'Hac_Uploads';
+
+window.uploadToCloudinary = async (input) => {
+  const file = input.files[0];
+  if (!file) return;
+  const status = document.getElementById('upload-status');
+  const field  = document.getElementById('t-attachment');
+  status.style.color = 'var(--text-muted)';
+  status.textContent = '⏳ جاري الرفع...';
+  const fd = new FormData();
+  fd.append('file', file);
+  fd.append('upload_preset', CLOUDINARY_PRESET);
+  fd.append('resource_type', 'raw');
+  try {
+    const res  = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD}/raw/upload`, { method:'POST', body:fd });
+    const data = await res.json();
+    if (data.secure_url) {
+      field.value = data.secure_url;
+      status.style.color = 'var(--green)';
+      status.textContent = '✓ تم الرفع!';
+    } else {
+      throw new Error(data.error?.message || 'Upload failed');
+    }
+  } catch(e) {
+    status.style.color = 'var(--red)';
+    status.textContent = '✗ فشل الرفع — تأكد من إعدادات Cloudinary';
+    console.error(e);
+  }
+  input.value = '';
+};
 
 // ─── AUTH ───
 window.doLogin = async () => {
