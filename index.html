@@ -377,9 +377,8 @@ function getOd(p){
   return '';
 }
 
-// ─── CLOUDINARY UPLOAD ───
-const CLOUDINARY_CLOUD = 'cpdekxev';
-const CLOUDINARY_PRESET = 'Hac_Uploads';
+// ─── FILE UPLOAD (FileStack) ───
+const FILESTACK_KEY = 'free';
 
 window.uploadToCloudinary = async (input) => {
   const file = input.files[0];
@@ -389,22 +388,33 @@ window.uploadToCloudinary = async (input) => {
   status.style.color = 'var(--text-muted)';
   status.textContent = '⏳ جاري الرفع...';
   const fd = new FormData();
-  fd.append('file', file);
-  fd.append('upload_preset', CLOUDINARY_PRESET);
+  fd.append('fileUpload', file);
   try {
-    const res  = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD}/image/upload`, { method:'POST', body:fd });
+    const res  = await fetch(`https://www.filestackapi.com/api/store/S3?key=free`, { method:'POST', body:fd });
     const data = await res.json();
-    if (data.secure_url) {
-      field.value = data.secure_url;
+    if (data.url) {
+      field.value = data.url;
       status.style.color = 'var(--green)';
       status.textContent = '✓ تم الرفع!';
     } else {
-      throw new Error(data.error?.message || 'Upload failed');
+      throw new Error('Upload failed');
     }
   } catch(e) {
-    status.style.color = 'var(--red)';
-    status.textContent = '✗ فشل الرفع — تأكد من إعدادات Cloudinary';
-    console.error(e);
+    // fallback: استخدم tmpfiles.org
+    try {
+      const fd2 = new FormData();
+      fd2.append('file', file);
+      const res2 = await fetch('https://tmpfiles.org/api/v1/upload', { method:'POST', body:fd2 });
+      const data2 = await res2.json();
+      if (data2.data?.url) {
+        field.value = data2.data.url.replace('tmpfiles.org/', 'tmpfiles.org/dl/');
+        status.style.color = 'var(--green)';
+        status.textContent = '✓ تم الرفع!';
+      } else { throw new Error('Both failed'); }
+    } catch(e2) {
+      status.style.color = 'var(--red)';
+      status.textContent = '✗ فشل الرفع';
+    }
   }
   input.value = '';
 };
