@@ -396,7 +396,9 @@ window.uploadToCloudinary = async (input) => {
     const res  = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD}/raw/upload`, { method:'POST', body:fd });
     const data = await res.json();
     if (data.secure_url) {
-      field.value = data.secure_url;
+      // تحويل الرابط لـ public accessible
+      const url = data.secure_url.replace('/raw/upload/', '/raw/upload/fl_attachment/');
+      field.value = url;
       status.style.color = 'var(--green)';
       status.textContent = '✓ تم الرفع!';
     } else {
