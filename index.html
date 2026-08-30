@@ -217,6 +217,18 @@ tr:hover td{background:var(--surface2);}
 
         <div class="dash-section-label">By O.D — click to filter</div>
         <div class="od-buttons" id="od-buttons"></div>
+
+        <!-- OD CHART -->
+        <div id="od-chart-wrap" style="display:none;margin-top:8px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px 24px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+            <div>
+              <div style="font-size:14px;font-weight:700;" id="od-chart-title"></div>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:2px;" id="od-chart-sub"></div>
+            </div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:24px;font-weight:700;color:var(--accent);" id="od-chart-total"></div>
+          </div>
+          <div id="od-chart-bars"></div>
+        </div>
       </div>
 
       <!-- EQUIPMENT LIST -->
@@ -367,7 +379,7 @@ const CAT_COLORS = {"Earthmoving Equipment":"#f0a500","Compaction Equipment":"#5
 let currentUser=null, isAdmin=false;
 let allEquipment=[], allTransfers=[];
 let editingId=null;
-let activeFilter={type:null, value:null};
+let multiFilter={od:null, cat:null, proj:null};
 
 function getOd(p){
   if(!p) return '';
@@ -463,20 +475,42 @@ async function loadData(){
 }
 
 // ─── DASHBOARD ───
+function getFiltered(){
+  return allEquipment.filter(e=>{
+    if(multiFilter.od && e.od!==multiFilter.od) return false;
+    if(multiFilter.cat && e.category!==multiFilter.cat) return false;
+    if(multiFilter.proj && e.project!==multiFilter.proj) return false;
+    return true;
+  });
+}
+
 function renderDashboard(){
+  const base = getFiltered();
+
   // Category cards
   const catCount={};
-  allEquipment.forEach(e=>{ if(e.category) catCount[e.category]=(catCount[e.category]||0)+1; });
+  // always count from od+proj filtered (not cat)
+  const forCat = allEquipment.filter(e=>{
+    if(multiFilter.od && e.od!==multiFilter.od) return false;
+    if(multiFilter.proj && e.project!==multiFilter.proj) return false;
+    return true;
+  });
+  forCat.forEach(e=>{ if(e.category) catCount[e.category]=(catCount[e.category]||0)+1; });
   document.getElementById('cat-cards').innerHTML = Object.entries(catCount).sort((a,b)=>b[1]-a[1]).map(([cat,cnt])=>`
-    <div class="dash-card${activeFilter.type==='cat'&&activeFilter.value===cat?' active':''}" onclick="applyFilter('cat','${cat}',this)">
+    <div class="dash-card${multiFilter.cat===cat?' active':''}" onclick="toggleCat('${cat.replace(/'/g,"\'")}')">
       <div class="dash-card-val" style="color:${CAT_COLORS[cat]||'var(--accent)'}">${cnt}</div>
       <div class="dash-card-label">${cat.replace(' Equipment','')}</div>
-      <div class="dash-card-sub">tap to filter · ℹ breakdown</div>
+      <div class="dash-card-sub">click to filter · ℹ breakdown</div>
     </div>`).join('');
 
   // Project list
   const projCount={};
-  allEquipment.forEach(e=>{ if(e.project) projCount[e.project]=(projCount[e.project]||0)+1; });
+  const forProj = allEquipment.filter(e=>{
+    if(multiFilter.od && e.od!==multiFilter.od) return false;
+    if(multiFilter.cat && e.category!==multiFilter.cat) return false;
+    return true;
+  });
+  forProj.forEach(e=>{ if(e.project) projCount[e.project]=(projCount[e.project]||0)+1; });
   window._projData = Object.entries(projCount).sort((a,b)=>b[1]-a[1]);
   renderProjList();
 
@@ -484,17 +518,81 @@ function renderDashboard(){
   const odCount={};
   allEquipment.forEach(e=>{ if(e.od) odCount[e.od]=(odCount[e.od]||0)+1; });
   document.getElementById('od-buttons').innerHTML =
-    `<button class="od-btn${!activeFilter.type?' active':''}" onclick="clearAllFilters()">All</button>`+
+    `<button class="od-btn${!multiFilter.od?' active':''}" onclick="toggleOD(null)">All</button>`+
     Object.entries(odCount).sort((a,b)=>b[1]-a[1]).map(([od,cnt])=>
-      `<button class="od-btn${activeFilter.type==='od'&&activeFilter.value===od?' active':''}" onclick="applyFilter('od','${od.replace(/'/g,"\\'")}',this)">${od} <span style="opacity:.5;font-size:10px">(${cnt})</span></button>`
+      `<button class="od-btn${multiFilter.od===od?' active':''}" onclick="toggleOD('${od.replace(/'/g,"\'")}')">
+        ${od} <span style="opacity:.5;font-size:10px">(${cnt})</span>
+      </button>`
     ).join('');
+
+  // OD Chart
+  if(multiFilter.od){
+    const odData = allEquipment.filter(e=>e.od===multiFilter.od);
+    const total = odData.length;
+    const catBreak={};
+    odData.forEach(e=>{ if(e.category) catBreak[e.category]=(catBreak[e.category]||0)+1; });
+    const sorted = Object.entries(catBreak).sort((a,b)=>b[1]-a[1]);
+    const maxVal = sorted[0]?.[1]||1;
+    const COLORS = ['#f0a500','#58a6ff','#3fb950','#f85149','#bc8cff','#ff7b72','#79c0ff','#d2a8ff'];
+    document.getElementById('od-chart-title').textContent = multiFilter.od;
+    document.getElementById('od-chart-sub').textContent = 'Equipment breakdown by category';
+    document.getElementById('od-chart-total').textContent = base.length + (base.length!==total?` / ${total}`:'');
+    document.getElementById('od-chart-bars').innerHTML = sorted.map(([cat,cnt],i)=>{
+      const activeCnt = base.filter(e=>e.category===cat).length;
+      return `
+      <div style="margin-bottom:10px;cursor:pointer;" onclick="toggleCat('${cat.replace(/'/g,"\'")}')">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+          <span style="font-size:12px;color:${multiFilter.cat===cat?COLORS[i%COLORS.length]:'var(--text)'};font-weight:${multiFilter.cat===cat?700:400}">${cat.replace(' Equipment','')}</span>
+          <span style="font-size:12px;font-family:'JetBrains Mono',monospace;color:${COLORS[i%COLORS.length]}">${cnt} <span style="color:var(--text-muted);font-size:10px">(${Math.round(cnt/total*100)}%)</span></span>
+        </div>
+        <div style="height:8px;background:var(--surface2);border-radius:4px;overflow:hidden;">
+          <div style="height:100%;width:${Math.round(cnt/maxVal*100)}%;background:${COLORS[i%COLORS.length]};border-radius:4px;opacity:${multiFilter.cat&&multiFilter.cat!==cat?0.3:1};transition:all .4s ease;"></div>
+        </div>
+      </div>`;
+    }).join('');
+    document.getElementById('od-chart-wrap').style.display='block';
+  } else {
+    document.getElementById('od-chart-wrap').style.display='none';
+  }
+
+  // update filter chips
+  updateFilterChips();
 }
 
+window.toggleOD = (od) => {
+  multiFilter.od = od;
+  if(!od) multiFilter.cat = null; // reset cat when clearing OD
+  renderDashboard();
+  renderTable();
+};
+
+window.toggleCat = (cat) => {
+  multiFilter.cat = multiFilter.cat===cat ? null : cat;
+  renderDashboard();
+  renderTable();
+};
+
+window.selectOD = window.toggleOD;
+
+function updateFilterChips(){
+  const chips = [];
+  if(multiFilter.od) chips.push(`O.D: ${multiFilter.od}`);
+  if(multiFilter.cat) chips.push(`Cat: ${multiFilter.cat.replace(' Equipment','')}`);
+  if(multiFilter.proj) chips.push(`Project: ${multiFilter.proj}`);
+  const bar = document.getElementById('active-filter-bar');
+  const txt = document.getElementById('filter-bar-text');
+  if(chips.length){
+    bar.style.display='flex';
+    txt.textContent = chips.join('  ·  ');
+  } else {
+    bar.style.display='none';
+  }
+}
 // ─── PROJECT LIST ───
 function renderProjList(filter=''){
   const data=(window._projData||[]).filter(([p])=>!filter||p.toLowerCase().includes(filter.toLowerCase()));
   document.getElementById('proj-list').innerHTML = data.length ? data.map(([proj,cnt])=>`
-    <div class="proj-row${activeFilter.type==='proj'&&activeFilter.value===proj?' active':''}" onclick="applyFilter('proj','${proj.replace(/'/g,"\\'").replace(/"/g,'&quot;')}',this)">
+    <div class="proj-row${multiFilter.proj===proj?' active':''}" onclick="toggleProj('${proj.replace(/'/g,"\\'").replace(/\"/g,'&quot;')}')">
       <div class="proj-row-left">
         <div class="proj-dot"></div>
         <div>
@@ -506,22 +604,23 @@ function renderProjList(filter=''){
     </div>`).join('') : '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px">No projects found</div>';
 }
 window.filterProjList = () => renderProjList(document.getElementById('proj-search-input')?.value||'');
-
-// Filter from dashboard
-window.applyFilter = (type, value, el) => {
-  activeFilter = {type, value};
-  showPage('equipment', document.querySelectorAll('.nav-item')[1]);
+window.toggleProj = (proj) => {
+  multiFilter.proj = multiFilter.proj===proj ? null : proj;
   renderDashboard();
-  renderProjList();
   renderTable();
-  // show filter bar
-  const labels = {cat:'Category', proj:'Project', od:'O.D'};
-  document.getElementById('active-filter-bar').style.display='flex';
-  document.getElementById('filter-bar-text').textContent = `${labels[type]}: ${value}`;
+};
+
+// Filter from dashboard (legacy compat)
+window.applyFilter = (type, value, el) => {
+  if(type==='cat') multiFilter.cat = value;
+  else if(type==='proj') multiFilter.proj = value;
+  else if(type==='od') multiFilter.od = value;
+  renderDashboard();
+  renderTable();
 };
 
 window.clearAllFilters = () => {
-  activeFilter={type:null,value:null};
+  multiFilter={od:null,cat:null,proj:null};
   document.getElementById('active-filter-bar').style.display='none';
   document.getElementById('search-input').value='';
   document.getElementById('filter-cat').value='';
@@ -595,11 +694,10 @@ window.renderTable = () => {
     const mCat=!cat||e.category===cat;
     const mType=!type||e.equipment===type;
     const mProj=!proj||e.project===proj;
-    let mFilter=true;
-    if(activeFilter.type==='cat') mFilter=e.category===activeFilter.value;
-    else if(activeFilter.type==='proj') mFilter=e.project===activeFilter.value;
-    else if(activeFilter.type==='od') mFilter=e.od===activeFilter.value;
-    return mQ&&mCat&&mType&&mProj&&mFilter;
+    if(multiFilter.od && e.od!==multiFilter.od) return false;
+    if(multiFilter.cat && e.category!==multiFilter.cat) return false;
+    if(multiFilter.proj && e.project!==multiFilter.proj) return false;
+    return mQ&&mCat&&mType&&mProj;
   });
   document.getElementById('table-loading').style.display='none';
   document.getElementById('table-empty').style.display=data.length?'none':'block';
