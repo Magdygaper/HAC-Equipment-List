@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>HAC Equipment List</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+:root{--bg:#0d1117;--surface:#161b22;--surface2:#1c2128;--border:#30363d;--accent:#f0a500;--text:#e6edf3;--text-muted:#7d8590;--green:#3fb950;--red:#f85149;--blue:#58a6ff;--radius:8px;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-size:14px;min-height:100vh;}
+
+/* AUTH */
+#auth-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;background:radial-gradient(ellipse at 60% 20%,#1a1000 0%,var(--bg) 60%);}
+.auth-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:48px 40px;width:360px;text-align:center;}
+.auth-logo{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent);letter-spacing:3px;margin-bottom:8px;}
+.auth-title{font-size:22px;font-weight:700;margin-bottom:4px;}
+.auth-sub{color:var(--text-muted);font-size:13px;margin-bottom:32px;}
+.auth-card input{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:10px 14px;border-radius:var(--radius);font-size:14px;margin-bottom:12px;outline:none;transition:border .2s;}
+.auth-card input:focus{border-color:var(--accent);}
+.btn-primary{width:100%;background:var(--accent);color:#000;border:none;padding:11px;border-radius:var(--radius);font-weight:600;font-size:14px;cursor:pointer;}
+.auth-err{color:var(--red);font-size:12px;margin-top:8px;min-height:18px;}
+
+/* LAYOUT */
+#app{display:none;}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+.topbar-left{display:flex;align-items:center;gap:16px;}
+.logo-mark{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:2px;}
+.topbar-title{font-size:15px;font-weight:600;}
+.topbar-right{display:flex;align-items:center;gap:12px;}
+.badge-role{background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:3px 10px;font-size:11px;color:var(--text-muted);}
+.badge-role.admin{border-color:var(--accent);color:var(--accent);}
+.btn-sm{background:transparent;border:1px solid var(--border);color:var(--text-muted);padding:5px 12px;border-radius:var(--radius);cursor:pointer;font-size:12px;}
+.btn-sm:hover{border-color:var(--text-muted);color:var(--text);}
+.main{display:flex;}
+.sidebar{width:220px;min-height:calc(100vh - 56px);background:var(--surface);border-right:1px solid var(--border);padding:20px 12px;flex-shrink:0;}
+.nav-label{font-size:10px;color:var(--text-muted);letter-spacing:1px;text-transform:uppercase;padding:0 8px;margin-bottom:6px;margin-top:16px;}
+.nav-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:var(--radius);cursor:pointer;color:var(--text-muted);font-size:13px;transition:all .15s;margin-bottom:2px;border:none;background:none;width:100%;text-align:left;}
+.nav-item:hover{background:var(--surface2);color:var(--text);}
+.nav-item.active{background:rgba(240,165,0,.1);color:var(--accent);}
+.content{flex:1;padding:28px 32px;overflow-x:auto;}
+.page{display:none;}.page.active{display:block;}
+.section-title{font-size:18px;font-weight:700;margin-bottom:6px;}
+.section-sub{color:var(--text-muted);font-size:13px;margin-bottom:24px;}
+
+/* DASHBOARD CARDS */
+.dash-section-label{font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;margin-top:24px;}
+.cards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:8px;}
+.dash-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;cursor:pointer;transition:all .2s;position:relative;overflow:hidden;}
+.dash-card:hover{border-color:var(--accent);transform:translateY(-1px);}
+.dash-card.active{border-color:var(--accent);background:rgba(240,165,0,.08);}
+.dash-card-val{font-size:26px;font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--accent);}
+.dash-card-label{font-size:11px;color:var(--text-muted);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.dash-card-sub{font-size:10px;color:var(--text-muted);margin-top:2px;opacity:.7;}
+
+/* PROJECT LIST FILTER */
+.proj-filter-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:8px;}
+.proj-search{width:100%;background:var(--surface2);border:none;border-bottom:1px solid var(--border);color:var(--text);padding:10px 16px;font-size:13px;outline:none;font-family:inherit;}
+.proj-search::placeholder{color:var(--text-muted);}
+.proj-list{max-height:260px;overflow-y:auto;}
+.proj-list::-webkit-scrollbar{width:4px;}
+.proj-list::-webkit-scrollbar-track{background:transparent;}
+.proj-list::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+.proj-row{display:flex;align-items:center;justify-content:space-between;padding:9px 16px;cursor:pointer;border-bottom:1px solid var(--border);transition:all .15s;}
+.proj-row:last-child{border-bottom:none;}
+.proj-row:hover{background:var(--surface2);}
+.proj-row.active{background:rgba(240,165,0,.08);border-left:3px solid var(--accent);}
+.proj-row-left{display:flex;align-items:center;gap:10px;}
+.proj-dot{width:8px;height:8px;border-radius:50%;background:var(--blue);flex-shrink:0;}
+.proj-row.active .proj-dot{background:var(--accent);}
+.proj-name{font-size:13px;color:var(--text);}
+.proj-row.active .proj-name{color:var(--accent);font-weight:600;}
+.proj-od{font-size:11px;color:var(--text-muted);}
+.proj-count{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text-muted);background:var(--surface2);padding:2px 8px;border-radius:10px;}
+.proj-row.active .proj-count{background:rgba(240,165,0,.15);color:var(--accent);}
+
+/* OD BUTTONS */
+.od-buttons{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;}
+.od-btn{background:var(--surface);border:1px solid var(--border);color:var(--text-muted);padding:7px 14px;border-radius:20px;cursor:pointer;font-size:12px;transition:all .2s;}
+.od-btn:hover{border-color:var(--accent);color:var(--accent);}
+.od-btn.active{background:rgba(240,165,0,.15);border-color:var(--accent);color:var(--accent);font-weight:600;}
+
+/* BREAKDOWN MODAL */
+.breakdown-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:300;align-items:center;justify-content:center;}
+.breakdown-overlay.open{display:flex;}
+.breakdown-box{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:28px 32px;width:560px;max-width:95vw;max-height:85vh;overflow-y:auto;}
+.breakdown-title{font-size:16px;font-weight:700;margin-bottom:4px;}
+.breakdown-sub{font-size:12px;color:var(--text-muted);margin-bottom:20px;}
+.breakdown-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+.breakdown-rank{font-size:11px;color:var(--text-muted);width:20px;text-align:right;flex-shrink:0;}
+.breakdown-name{font-size:13px;width:200px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.breakdown-track{flex:1;height:10px;background:var(--surface2);border-radius:5px;overflow:hidden;}
+.breakdown-fill{height:100%;border-radius:5px;transition:width .5s;}
+.breakdown-count{font-size:12px;font-family:'JetBrains Mono',monospace;width:32px;text-align:right;flex-shrink:0;}
+.breakdown-close{margin-top:20px;background:var(--surface2);border:1px solid var(--border);color:var(--text-muted);padding:8px 20px;border-radius:var(--radius);cursor:pointer;font-size:13px;float:right;}
+
+/* TOOLBAR */
+.toolbar{display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap;align-items:center;}
+.search-box{flex:1;min-width:200px;background:var(--surface);border:1px solid var(--border);color:var(--text);padding:8px 14px;border-radius:var(--radius);font-size:13px;outline:none;transition:border .2s;}
+.search-box:focus{border-color:var(--accent);}
+select{background:var(--surface);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:var(--radius);font-size:13px;cursor:pointer;outline:none;}
+.btn-add{background:var(--accent);color:#000;border:none;padding:8px 18px;border-radius:var(--radius);font-weight:600;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:6px;}
+.btn-add:hover{opacity:.85;}
+.active-filter-bar{background:rgba(240,165,0,.1);border:1px solid rgba(240,165,0,.3);border-radius:var(--radius);padding:8px 14px;margin-bottom:14px;font-size:12px;color:var(--accent);display:flex;justify-content:space-between;align-items:center;}
+.clear-filter{cursor:pointer;color:var(--text-muted);font-size:11px;text-decoration:underline;}
+
+/* TABLE */
+.table-wrap{overflow-x:auto;border-radius:var(--radius);border:1px solid var(--border);}
+table{width:100%;border-collapse:collapse;}
+thead{background:var(--surface2);}
+th{padding:10px 14px;text-align:left;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;border-bottom:1px solid var(--border);}
+td{padding:11px 14px;border-bottom:1px solid var(--border);vertical-align:middle;white-space:nowrap;font-size:13px;}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:var(--surface2);}
+.code-cell{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--accent);}
+.cat-badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;background:var(--surface2);border:1px solid var(--border);color:var(--text-muted);}
+.action-btns{display:flex;gap:6px;}
+.btn-edit,.btn-del,.btn-transfer{padding:4px 10px;border-radius:5px;font-size:11px;cursor:pointer;border:1px solid;transition:all .15s;background:transparent;}
+.btn-edit{border-color:var(--blue);color:var(--blue);}
+.btn-edit:hover{background:var(--blue);color:#000;}
+.btn-del{border-color:var(--red);color:var(--red);}
+.btn-del:hover{background:var(--red);color:#fff;}
+.btn-transfer{border-color:var(--green);color:var(--green);}
+.btn-transfer:hover{background:var(--green);color:#000;}
+
+/* MODAL */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;align-items:center;justify-content:center;}
+.modal-overlay.open{display:flex;}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:28px 32px;width:620px;max-width:95vw;max-height:90vh;overflow-y:auto;}
+.modal-title{font-size:16px;font-weight:700;margin-bottom:20px;}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.form-group{display:flex;flex-direction:column;gap:5px;}
+.form-group.full{grid-column:1/-1;}
+.form-group label{font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;}
+.form-group input,.form-group select,.form-group textarea{background:var(--bg);border:1px solid var(--border);color:var(--text);padding:9px 12px;border-radius:var(--radius);font-size:13px;outline:none;transition:border .2s;font-family:inherit;}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--accent);}
+.form-group input[readonly]{opacity:.6;}
+.modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:24px;}
+.btn-cancel{background:transparent;border:1px solid var(--border);color:var(--text-muted);padding:9px 20px;border-radius:var(--radius);cursor:pointer;font-size:13px;}
+.btn-save{background:var(--accent);color:#000;border:none;padding:9px 24px;border-radius:var(--radius);font-weight:600;cursor:pointer;font-size:13px;}
+
+/* TRANSFER LOG */
+.transfer-item{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:14px 18px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:flex-start;}
+.transfer-info{flex:1;}
+.transfer-arrow{color:var(--accent);font-weight:700;margin:0 6px;}
+.transfer-meta{font-size:11px;color:var(--text-muted);margin-top:4px;}
+
+.loading{text-align:center;padding:60px;color:var(--text-muted);}
+.spinner{width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 12px;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.empty{text-align:center;padding:60px;color:var(--text-muted);}
+#toast{position:fixed;bottom:24px;right:24px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 20px;font-size:13px;z-index:999;transform:translateY(80px);opacity:0;transition:all .3s;pointer-events:none;}
+#toast.show{transform:translateY(0);opacity:1;}
+#toast.success{border-color:var(--green);color:var(--green);}
+#toast.error{border-color:var(--red);color:var(--red);}
+</style>
+</head>
+<body>
+
+<!-- AUTH -->
+<div id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-logo">HAC · PMV</div>
+    <div class="auth-title">Equipment List</div>
+    <div class="auth-sub">Hassan Allam Construction</div>
+    <input type="email" id="login-email" placeholder="Email" />
+    <input type="password" id="login-pass" placeholder="Password" />
+    <button class="btn-primary" onclick="doLogin()">Sign In</button>
+    <div class="auth-err" id="auth-err"></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <div class="topbar">
+    <div class="topbar-left">
+      <div class="logo-mark">HAC · PMV</div>
+      <div class="topbar-title">Equipment List</div>
+    </div>
+    <div class="topbar-right">
+      <span class="badge-role" id="role-badge">Viewer</span>
+      <button class="btn-sm" onclick="doLogout()">Logout</button>
+    </div>
+  </div>
+  <div class="main">
+    <div class="sidebar">
+      <div class="nav-label">Menu</div>
+      <button class="nav-item active" onclick="showPage('dashboard',this)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        Dashboard
+      </button>
+      <button class="nav-item" onclick="showPage('equipment',this)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>
+        Equipment List
+      </button>
+      <button class="nav-item" onclick="showPage('transfers',this)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 014-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>
+        Transfer Log
+      </button>
+    </div>
+
+    <div class="content">
+
+      <!-- DASHBOARD -->
+      <div class="page active" id="page-dashboard">
+        <div class="section-title">Dashboard</div>
+        <div class="section-sub">Click any card to filter equipment</div>
+
+        <div class="dash-section-label">By Category — click to filter & view breakdown</div>
+        <div class="cards-grid" id="cat-cards"></div>
+
+        <div class="dash-section-label">By Project — click to filter</div>
+        <div class="proj-filter-wrap">
+          <input class="proj-search" type="text" id="proj-search-input" placeholder="🔍  Search project..." oninput="filterProjList()" />
+          <div class="proj-list" id="proj-list"></div>
+        </div>
+
+        <div class="dash-section-label">By O.D — click to filter</div>
+        <div class="od-buttons" id="od-buttons"></div>
+      </div>
+
+      <!-- EQUIPMENT LIST -->
+      <div class="page" id="page-equipment">
+        <div class="section-title">Equipment List</div>
+        <div id="active-filter-bar" style="display:none" class="active-filter-bar">
+          <span id="filter-bar-text"></span>
+          <span class="clear-filter" onclick="clearAllFilters()">✕ Clear filter</span>
+        </div>
+        <div class="toolbar">
+          <input class="search-box" type="text" id="search-input" placeholder="Search by name, code, brand..." oninput="renderTable()" />
+          <select id="filter-cat" onchange="renderTable()"><option value="">All Categories</option></select>
+          <select id="filter-type" onchange="renderTable()"><option value="">All Types</option></select>
+          <select id="filter-proj" onchange="renderTable()"><option value="">All Projects</option></select>
+          <button class="btn-add" id="btn-add-eq" style="display:none" onclick="openAddModal()">+ Add Equipment</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th><th>Category</th><th>Equipment</th><th>Brand / Model</th>
+                <th>Code</th><th>Project</th><th>O.D</th><th>Year</th>
+                <th id="actions-col" style="display:none">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="table-body"></tbody>
+          </table>
+        </div>
+        <div id="table-loading" class="loading"><div class="spinner"></div>Loading...</div>
+        <div id="table-empty" class="empty" style="display:none">No equipment found.</div>
+      </div>
+
+      <!-- TRANSFER LOG -->
+      <div class="page" id="page-transfers">
+        <div class="section-title">Transfer Log</div>
+        <div class="section-sub">History of all equipment transfers</div>
+        <div class="toolbar">
+          <input class="search-box" type="text" id="transfer-search" placeholder="Search by code or equipment name..." oninput="filterTransfers()" />
+        </div>
+        <div id="transfers-list"><div class="loading"><div class="spinner"></div>Loading...</div></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- BREAKDOWN MODAL -->
+<div class="breakdown-overlay" id="breakdown-modal">
+  <div class="breakdown-box">
+    <div class="breakdown-title" id="bd-title"></div>
+    <div class="breakdown-sub" id="bd-sub"></div>
+    <div id="bd-content"></div>
+    <button class="breakdown-close" onclick="closeBreakdown()">Close</button>
+  </div>
+</div>
+
+<!-- ADD/EDIT MODAL -->
+<div class="modal-overlay" id="eq-modal">
+  <div class="modal">
+    <div class="modal-title" id="modal-title">Add Equipment</div>
+    <div class="form-grid">
+      <div class="form-group"><label>Category</label>
+        <select id="f-category">
+          <option>Earthmoving Equipment</option><option>Compaction Equipment</option>
+          <option>Power & Utilities</option><option>Concrete Equipment</option>
+          <option>Lifting Equipment</option><option>Ground Engineering</option>
+          <option>Special Equipment</option><option>Pumping Equipment</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Equipment Type</label><input type="text" id="f-equipment" placeholder="e.g. Excavator"/></div>
+      <div class="form-group full"><label>Brand / Model</label><input type="text" id="f-brand"/></div>
+      <div class="form-group"><label>Code / Board No.</label><input type="text" id="f-code"/></div>
+      <div class="form-group"><label>Code SAP</label><input type="text" id="f-sap"/></div>
+      <div class="form-group"><label>Chassis No.</label><input type="text" id="f-chassis"/></div>
+      <div class="form-group"><label>Engine Model</label><input type="text" id="f-engine"/></div>
+      <div class="form-group"><label>Engine S/N</label><input type="text" id="f-enginesn"/></div>
+      <div class="form-group"><label>Manuf. Year</label><input type="number" id="f-year"/></div>
+      <div class="form-group"><label>Power</label><input type="text" id="f-power"/></div>
+      <div class="form-group"><label>Current Project</label><input type="text" id="f-project" oninput="autoFillOd()"/></div>
+      <div class="form-group"><label>O.D (auto-filled)</label><input type="text" id="f-od" placeholder="Auto from project"/></div>
+      <div class="form-group"><label>Cost Center</label><input type="text" id="f-costcenter"/></div>
+      <div class="form-group"><label>Market Value</label><input type="text" id="f-value"/></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('eq-modal')">Cancel</button>
+      <button class="btn-save" onclick="saveEquipment()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- TRANSFER MODAL -->
+<div class="modal-overlay" id="transfer-modal">
+  <div class="modal">
+    <div class="modal-title">Transfer Equipment</div>
+    <input type="hidden" id="t-eq-id"/>
+    <div class="form-grid">
+      <div class="form-group full"><label>Equipment</label><input type="text" id="t-eq-name" readonly/></div>
+      <div class="form-group"><label>From Project</label><input type="text" id="t-from" readonly/></div>
+      <div class="form-group"><label>To Project</label><input type="text" id="t-to" oninput="autoFillTransferOd()"/></div>
+      <div class="form-group"><label>New O.D (auto)</label><input type="text" id="t-od" readonly/></div>
+      <div class="form-group"><label>Transfer Date</label><input type="date" id="t-date"/></div>
+      <div class="form-group"><label>Requested By</label><input type="text" id="t-requested-by" placeholder="Name of person who requested transfer"/></div>
+      <div class="form-group full">
+        <label>Attachment Link (Outlook / OneDrive)</label>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input type="text" id="t-attachment" placeholder="https://..." autocomplete="off" spellcheck="false" style="flex:1;"
+            onpaste="event.preventDefault();var t=(event.clipboardData||window.clipboardData).getData('text/plain');this.value=t.trim();"
+          />
+          <button type="button" onclick="(async()=>{try{var t=await navigator.clipboard.readText();document.getElementById('t-attachment').value=t.trim();document.getElementById('paste-btn').textContent='✓ Done';}catch(e){document.getElementById('paste-btn').textContent='Allow Access';}setTimeout(()=>{document.getElementById('paste-btn').textContent='📋 Paste';},1500);})()" id="paste-btn"
+            style="background:var(--surface2);border:1px solid var(--border);color:var(--text-muted);padding:8px 14px;border-radius:var(--radius);cursor:pointer;font-size:12px;white-space:nowrap;flex-shrink:0;">
+            📋 Paste
+          </button>
+        </div>
+      </div>
+      <div class="form-group full"><label>Notes</label><textarea id="t-notes" rows="2"></textarea></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('transfer-modal')">Cancel</button>
+      <button class="btn-save" onclick="saveTransfer()">Confirm Transfer</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+const firebaseConfig = {
+  apiKey:"AIzaSyBb9KUiy-0IJFMPqLrGDF3EZxQ1k68UDL4",
+  authDomain:"equipment-list-hac.firebaseapp.com",
+  projectId:"equipment-list-hac",
+  storageBucket:"equipment-list-hac.firebasestorage.app",
+  messagingSenderId:"453574081349",
+  appId:"1:453574081349:web:3c705185463d987c649c2c"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const auth = getAuth(app);
+const ADMINS = ["magdygaperarqam@gmail.com"];
+
+const OD_MAP = {"Bab Masr":"Eng. Mostafa Morsi","El Bank El Araby":"Eng. Mostafa Morsi","Kayan":"Eng. Mostafa Morsi","Luxor":"Eng. Mostafa Morsi","Mansoura 2":"Eng. Mostafa Morsi","R05":"Eng. Mostafa Morsi","SCB":"Eng. Mostafa Morsi","Al Shohadaa Central hospital":"Eng. Tamer Hagag","Alamein Station":"Eng. Tamer Hagag","Haptowen":"Eng. Tamer Hagag","Locanda":"Eng. Tamer Hagag","Naser Institute":"Eng. Tamer Hagag","Silver Sand":"Eng. Tamer Hagag","Sofitel Hotel":"Eng. Tamer Hagag","Soul":"Eng. Tamer Hagag","swan Lake - 2":"Eng. Tamer Hagag","Wadi Natroun":"Eng. Tamer Hagag","Abou Oweikal":"Eng. Ahmed Nezar","Abou Qir JV":"Eng. Ahmed Nezar","Alex Tram":"Eng. Ahmed Nezar","El Ayaat Project":"Eng. Ahmed Nezar","intake mostakbal Misr":"Eng. Ahmed Nezar","Metro Line 4":"Eng. Ahmed Nezar","Mostakbal Masr Zone (G)":"Eng. Ahmed Nezar","Safaga Port":"Eng. Ahmed Nezar","Sokhna Port":"Eng. Ahmed Nezar","TBM - Metro L4":"Eng. Ahmed Nezar","Toshka":"Eng. Ahmed Nezar","Benban 200 MW":"Eng. Hany Fayd","El Dabaa":"Eng. Hany Fayd","marasy":"Eng. Essam Ibrahim","Ras Elhekma":"Eng. Waled Fahmy","Allam Block ( 10th of ramadan )":"Eng. Mohamed Mostafa","Allam Block ( Safaga Port )":"Eng. Mohamed Mostafa","Central Workshop":"Eng. Mohamed Mostafa","hassan allam complex":"Eng. Mohamed Mostafa","Heavy Transportation Workshop":"Eng. Mohamed Mostafa","Scaffolding":"Eng. Mohamed Mostafa","Ware House( 10th of ramadan )":"Eng. Mohamed Mostafa","10th OF RAMADAN":"Eng. Mohamed Mostafa","Sant Catreen":"Eng. Abdelaziz Ibrahim","Cairo Festival":"Eng. Hamdy Swillam","Hard 350":"Eng. Hamdy Swillam","Mansoura 1":"Eng. Hamdy Swillam","Mavida Garden":"Eng. Hamdy Swillam","Allam steel":"Eng. Salah Shaker","New Capital Tran-Hub":"Eng. Mohamed Salem","Afrexim Bank":"Eng. Islam El Sayed","Al Alamen Towers JV":"Eng. Mohamed Abdellatif"};
+
+const CAT_COLORS = {"Earthmoving Equipment":"#f0a500","Compaction Equipment":"#58a6ff","Power & Utilities":"#3fb950","Concrete Equipment":"#e05c00","Lifting Equipment":"#a371f7","Ground Engineering":"#39d353","Special Equipment":"#ff7b72","Pumping Equipment":"#ffa657"};
+
+let currentUser=null, isAdmin=false;
+let allEquipment=[], allTransfers=[];
+let editingId=null;
+let activeFilter={type:null, value:null};
+
+function getOd(p){
+  if(!p) return '';
+  if(OD_MAP[p]) return OD_MAP[p];
+  const l=p.toLowerCase();
+  for(const [k,v] of Object.entries(OD_MAP)) if(k.toLowerCase()===l) return v;
+  return '';
+}
+
+// ─── AUTH ───
+window.doLogin = async () => {
+  const email=document.getElementById('login-email').value.trim();
+  const pass=document.getElementById('login-pass').value;
+  document.getElementById('auth-err').textContent='';
+  try { await signInWithEmailAndPassword(auth,email,pass); }
+  catch(e){ document.getElementById('auth-err').textContent='Invalid email or password.'; }
+};
+window.doLogout = async () => { await signOut(auth); };
+
+onAuthStateChanged(auth, user => {
+  if(user){
+    currentUser=user; isAdmin=ADMINS.includes(user.email);
+    document.getElementById('auth-screen').style.display='none';
+    document.getElementById('app').style.display='block';
+    document.getElementById('role-badge').textContent=isAdmin?'Admin':'Viewer';
+    document.getElementById('role-badge').className='badge-role'+(isAdmin?' admin':'');
+    if(isAdmin){
+      document.getElementById('btn-add-eq').style.display='flex';
+      document.getElementById('actions-col').style.display='';
+    }
+    loadData();
+  } else {
+    currentUser=null;
+    document.getElementById('auth-screen').style.display='flex';
+    document.getElementById('app').style.display='none';
+  }
+});
+
+// ─── LOAD ───
+async function loadData(){
+  const [eqSnap,trSnap] = await Promise.all([
+    getDocs(query(collection(db,'equipment'),orderBy('sn','asc'))),
+    getDocs(query(collection(db,'transfers'),orderBy('timestamp','desc')))
+  ]);
+  allEquipment = eqSnap.docs.map(d=>({id:d.id,...d.data()}));
+  allTransfers = trSnap.docs.map(d=>({id:d.id,...d.data()}));
+  renderDashboard();
+  renderTable();
+  populateFilters();
+  renderTransfers();
+}
+
+// ─── DASHBOARD ───
+function renderDashboard(){
+  // Category cards
+  const catCount={};
+  allEquipment.forEach(e=>{ if(e.category) catCount[e.category]=(catCount[e.category]||0)+1; });
+  document.getElementById('cat-cards').innerHTML = Object.entries(catCount).sort((a,b)=>b[1]-a[1]).map(([cat,cnt])=>`
+    <div class="dash-card${activeFilter.type==='cat'&&activeFilter.value===cat?' active':''}" onclick="applyFilter('cat','${cat}',this)">
+      <div class="dash-card-val" style="color:${CAT_COLORS[cat]||'var(--accent)'}">${cnt}</div>
+      <div class="dash-card-label">${cat.replace(' Equipment','')}</div>
+      <div class="dash-card-sub">tap to filter · ℹ breakdown</div>
+    </div>`).join('');
+
+  // Project list
+  const projCount={};
+  allEquipment.forEach(e=>{ if(e.project) projCount[e.project]=(projCount[e.project]||0)+1; });
+  window._projData = Object.entries(projCount).sort((a,b)=>b[1]-a[1]);
+  renderProjList();
+
+  // OD buttons
+  const odCount={};
+  allEquipment.forEach(e=>{ if(e.od) odCount[e.od]=(odCount[e.od]||0)+1; });
+  document.getElementById('od-buttons').innerHTML =
+    `<button class="od-btn${!activeFilter.type?' active':''}" onclick="clearAllFilters()">All</button>`+
+    Object.entries(odCount).sort((a,b)=>b[1]-a[1]).map(([od,cnt])=>
+      `<button class="od-btn${activeFilter.type==='od'&&activeFilter.value===od?' active':''}" onclick="applyFilter('od','${od.replace(/'/g,"\\'")}',this)">${od} <span style="opacity:.5;font-size:10px">(${cnt})</span></button>`
+    ).join('');
+}
+
+// ─── PROJECT LIST ───
+function renderProjList(filter=''){
+  const data=(window._projData||[]).filter(([p])=>!filter||p.toLowerCase().includes(filter.toLowerCase()));
+  document.getElementById('proj-list').innerHTML = data.length ? data.map(([proj,cnt])=>`
+    <div class="proj-row${activeFilter.type==='proj'&&activeFilter.value===proj?' active':''}" onclick="applyFilter('proj','${proj.replace(/'/g,"\\'").replace(/"/g,'&quot;')}',this)">
+      <div class="proj-row-left">
+        <div class="proj-dot"></div>
+        <div>
+          <div class="proj-name">${proj}</div>
+          <div class="proj-od">${getOd(proj)||''}</div>
+        </div>
+      </div>
+      <div class="proj-count">${cnt}</div>
+    </div>`).join('') : '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px">No projects found</div>';
+}
+window.filterProjList = () => renderProjList(document.getElementById('proj-search-input')?.value||'');
+
+// Filter from dashboard
+window.applyFilter = (type, value, el) => {
+  activeFilter = {type, value};
+  showPage('equipment', document.querySelectorAll('.nav-item')[1]);
+  renderDashboard();
+  renderProjList();
+  renderTable();
+  // show filter bar
+  const labels = {cat:'Category', proj:'Project', od:'O.D'};
+  document.getElementById('active-filter-bar').style.display='flex';
+  document.getElementById('filter-bar-text').textContent = `${labels[type]}: ${value}`;
+};
+
+window.clearAllFilters = () => {
+  activeFilter={type:null,value:null};
+  document.getElementById('active-filter-bar').style.display='none';
+  document.getElementById('search-input').value='';
+  document.getElementById('filter-cat').value='';
+  document.getElementById('filter-type').value='';
+  document.getElementById('filter-proj').value='';
+  renderDashboard();
+  renderProjList();
+  renderTable();
+};
+
+// ─── BREAKDOWN MODAL ───
+window.showBreakdown = (type, value) => {
+  let title='', sub='', items=[];
+  const subset = allEquipment.filter(e => type==='cat'?e.category===value:e.project===value);
+
+  if(type==='cat'){
+    title = value;
+    sub = `${subset.length} equipment total`;
+    // top equipment types
+    const typeCount={};
+    subset.forEach(e=>{ if(e.equipment) typeCount[e.equipment]=(typeCount[e.equipment]||0)+1; });
+    // top ODs
+    const odCount={};
+    subset.forEach(e=>{ if(e.od) odCount[e.od]=(odCount[e.od]||0)+1; });
+    const maxT=Math.max(...Object.values(typeCount),1);
+    const maxO=Math.max(...Object.values(odCount),1);
+    items = `
+      <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">Most Used Equipment Types</div>
+      ${Object.entries(typeCount).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([k,v],i)=>`
+        <div class="breakdown-row">
+          <div class="breakdown-rank">${i+1}</div>
+          <div class="breakdown-name">${k}</div>
+          <div class="breakdown-track"><div class="breakdown-fill" style="width:${v/maxT*100}%;background:${CAT_COLORS[value]||'var(--accent)'}"></div></div>
+          <div class="breakdown-count">${v}</div>
+        </div>`).join('')}
+      <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin:16px 0 10px;">Equipment by O.D</div>
+      ${Object.entries(odCount).sort((a,b)=>b[1]-a[1]).map(([k,v],i)=>`
+        <div class="breakdown-row">
+          <div class="breakdown-rank">${i+1}</div>
+          <div class="breakdown-name">${k}</div>
+          <div class="breakdown-track"><div class="breakdown-fill" style="width:${v/maxO*100}%;background:var(--blue)"></div></div>
+          <div class="breakdown-count">${v}</div>
+        </div>`).join('')}`;
+  }
+
+  document.getElementById('bd-title').textContent=title;
+  document.getElementById('bd-sub').textContent=sub;
+  document.getElementById('bd-content').innerHTML=items;
+  document.getElementById('breakdown-modal').classList.add('open');
+};
+window.closeBreakdown = () => document.getElementById('breakdown-modal').classList.remove('open');
+
+// ─── FILTERS ───
+function populateFilters(){
+  const cats=[...new Set(allEquipment.map(e=>e.category).filter(Boolean))].sort();
+  const types=[...new Set(allEquipment.map(e=>e.equipment).filter(Boolean))].sort();
+  const projs=[...new Set(allEquipment.map(e=>e.project).filter(Boolean))].sort();
+  document.getElementById('filter-cat').innerHTML='<option value="">All Categories</option>'+cats.map(c=>`<option>${c}</option>`).join('');
+  document.getElementById('filter-type').innerHTML='<option value="">All Types</option>'+types.map(t=>`<option>${t}</option>`).join('');
+  document.getElementById('filter-proj').innerHTML='<option value="">All Projects</option>'+projs.map(p=>`<option>${p}</option>`).join('');
+}
+
+// ─── TABLE ───
+window.renderTable = () => {
+  const q=document.getElementById('search-input').value.toLowerCase();
+  const cat=document.getElementById('filter-cat').value;
+  const type=document.getElementById('filter-type').value;
+  const proj=document.getElementById('filter-proj').value;
+  let data=allEquipment.filter(e=>{
+    const mQ=!q||[e.equipment,e.brand,e.code,e.project,e.od,e.sap].some(v=>v&&String(v).toLowerCase().includes(q));
+    const mCat=!cat||e.category===cat;
+    const mType=!type||e.equipment===type;
+    const mProj=!proj||e.project===proj;
+    let mFilter=true;
+    if(activeFilter.type==='cat') mFilter=e.category===activeFilter.value;
+    else if(activeFilter.type==='proj') mFilter=e.project===activeFilter.value;
+    else if(activeFilter.type==='od') mFilter=e.od===activeFilter.value;
+    return mQ&&mCat&&mType&&mProj&&mFilter;
+  });
+  document.getElementById('table-loading').style.display='none';
+  document.getElementById('table-empty').style.display=data.length?'none':'block';
+  document.getElementById('table-body').innerHTML=data.map((e,i)=>`
+    <tr>
+      <td style="color:var(--text-muted)">${e.sn||i+1}</td>
+      <td><span class="cat-badge">${e.category||''}</span></td>
+      <td>${e.equipment||''}</td>
+      <td>${e.brand||''}</td>
+      <td class="code-cell">${e.code||''}</td>
+      <td>${e.project||'—'}</td>
+      <td style="color:var(--text-muted);font-size:12px">${e.od||'—'}</td>
+      <td style="font-family:monospace;font-size:12px">${e.year||'—'}</td>
+      ${isAdmin?`<td><div class="action-btns">
+        <button class="btn-transfer" onclick="openTransferModal('${e.id}')">Transfer</button>
+        <button class="btn-edit" onclick="openEditModal('${e.id}')">Edit</button>
+        <button class="btn-del" onclick="deleteEquipment('${e.id}')">Delete</button>
+      </div></td>`:'<td></td>'}
+    </tr>`).join('');
+};
+
+// ─── ADD/EDIT ───
+window.openAddModal = () => {
+  editingId=null;
+  document.getElementById('modal-title').textContent='Add Equipment';
+  ['equipment','brand','code','sap','chassis','engine','enginesn','year','power','project','od','costcenter','value'].forEach(f=>{
+    const el=document.getElementById('f-'+f); if(el) el.value='';
+  });
+  document.getElementById('f-category').value='Earthmoving Equipment';
+  document.getElementById('eq-modal').classList.add('open');
+};
+
+window.openEditModal = (id) => {
+  const eq=allEquipment.find(e=>e.id===id); if(!eq) return;
+  editingId=id;
+  document.getElementById('modal-title').textContent='Edit Equipment';
+  document.getElementById('f-category').value=eq.category||'';
+  document.getElementById('f-equipment').value=eq.equipment||'';
+  document.getElementById('f-brand').value=eq.brand||'';
+  document.getElementById('f-code').value=eq.code||'';
+  document.getElementById('f-sap').value=eq.sap||'';
+  document.getElementById('f-chassis').value=eq.chassis||'';
+  document.getElementById('f-engine').value=eq.engine||'';
+  document.getElementById('f-enginesn').value=eq.enginesn||'';
+  document.getElementById('f-year').value=eq.year||'';
+  document.getElementById('f-power').value=eq.power||'';
+  document.getElementById('f-project').value=eq.project||'';
+  document.getElementById('f-od').value=eq.od||'';
+  document.getElementById('f-costcenter').value=eq.costcenter||'';
+  document.getElementById('f-value').value=eq.value||'';
+  document.getElementById('eq-modal').classList.add('open');
+};
+
+window.autoFillOd = () => {
+  const od=getOd(document.getElementById('f-project').value);
+  if(od) document.getElementById('f-od').value=od;
+};
+
+window.saveEquipment = async () => {
+  const project=document.getElementById('f-project').value.trim();
+  const data={
+    category:document.getElementById('f-category').value,
+    equipment:document.getElementById('f-equipment').value,
+    brand:document.getElementById('f-brand').value,
+    code:document.getElementById('f-code').value,
+    sap:document.getElementById('f-sap').value,
+    chassis:document.getElementById('f-chassis').value,
+    engine:document.getElementById('f-engine').value,
+    enginesn:document.getElementById('f-enginesn').value,
+    year:document.getElementById('f-year').value,
+    power:document.getElementById('f-power').value,
+    project, od:getOd(project)||document.getElementById('f-od').value,
+    costcenter:document.getElementById('f-costcenter').value,
+    value:document.getElementById('f-value').value,
+  };
+  try {
+    if(editingId){ await updateDoc(doc(db,'equipment',editingId),data); toast('Updated ✓','success'); }
+    else { data.sn=allEquipment.length+1; data.createdAt=serverTimestamp(); await addDoc(collection(db,'equipment'),data); toast('Added ✓','success'); }
+    closeModal('eq-modal'); await loadData();
+  } catch(e){ toast('Error: '+e.message,'error'); }
+};
+
+window.deleteEquipment = async (id) => {
+  if(!confirm('Delete this equipment?')) return;
+  try { await deleteDoc(doc(db,'equipment',id)); toast('Deleted ✓','success'); await loadData(); }
+  catch(e){ toast('Error','error'); }
+};
+
+// ─── TRANSFER ───
+window.openTransferModal = (id) => {
+  const eq=allEquipment.find(e=>e.id===id); if(!eq) return;
+  document.getElementById('t-eq-id').value=id;
+  document.getElementById('t-eq-name').value=`${eq.equipment} — ${eq.code}`;
+  document.getElementById('t-from').value=eq.project||'—';
+  document.getElementById('t-to').value='';
+  document.getElementById('t-od').value='';
+  document.getElementById('t-date').value=new Date().toISOString().split('T')[0];
+  document.getElementById('t-requested-by').value='';
+  document.getElementById('t-attachment').value='';
+  document.getElementById('t-notes').value='';
+  document.getElementById('transfer-modal').classList.add('open');
+};
+
+window.autoFillTransferOd = () => {
+  const od=getOd(document.getElementById('t-to').value);
+  document.getElementById('t-od').value=od||'(not in O.D table)';
+};
+
+window.saveTransfer = async () => {
+  const id=document.getElementById('t-eq-id').value;
+  const to=document.getElementById('t-to').value.trim();
+  const from=document.getElementById('t-from').value;
+  const date=document.getElementById('t-date').value;
+  const notes=document.getElementById('t-notes').value;
+  if(!to){toast('Enter destination project','error');return;}
+  const newOd=getOd(to);
+  try {
+    const eq=allEquipment.find(e=>e.id===id);
+    const requestedBy=document.getElementById('t-requested-by').value.trim();
+    const attachment=document.getElementById('t-attachment').value.trim();
+    await addDoc(collection(db,'transfers'),{
+      equipmentId:id, equipmentName:eq?.equipment||'', code:eq?.code||'',
+      from, to, date, notes, requestedBy, attachment,
+      timestamp:serverTimestamp(), by:currentUser.email
+    });
+    const upd={project:to}; if(newOd) upd.od=newOd;
+    await updateDoc(doc(db,'equipment',id),upd);
+    toast('Transfer recorded ✓','success');
+    closeModal('transfer-modal'); await loadData();
+  } catch(e){ toast('Error: '+e.message,'error'); }
+};
+
+// ─── TRANSFER LOG ───
+function renderTransfers(){
+  const search=document.getElementById('transfer-search')?.value?.toLowerCase()||'';
+  const filtered=search?allTransfers.filter(t=>
+    t.code?.toLowerCase().includes(search)||t.equipmentName?.toLowerCase().includes(search)
+  ):allTransfers;
+  document.getElementById('transfers-list').innerHTML=filtered.length?filtered.map(t=>`
+    <div class="transfer-item">
+      <div class="transfer-info">
+        <div><strong>${t.equipmentName||'—'}</strong> <span class="code-cell">${t.code||''}</span></div>
+        <div style="margin-top:6px">
+          <span style="color:var(--text-muted)">${t.from||'—'}</span>
+          <span class="transfer-arrow">→</span>
+          <span style="color:var(--green)">${t.to||'—'}</span>
+        </div>
+        ${t.notes?`<div style="color:var(--text-muted);font-size:12px;margin-top:4px">📝 ${t.notes}</div>`:''}
+        ${t.requestedBy?`<div style="font-size:12px;margin-top:4px;color:var(--blue)">👤 Requested By: ${t.requestedBy}</div>`:''}
+        ${t.attachment?`<div style="margin-top:4px"><a href="${t.attachment}" target="_blank" style="font-size:12px;color:var(--accent);text-decoration:none">📎 Open Attachment</a></div>`:''}
+        <div class="transfer-meta">${t.date||''} · by ${t.by||'—'}</div>
+      </div>
+      ${isAdmin?`<button class="btn-del" style="margin-left:16px;flex-shrink:0" onclick="deleteTransfer('${t.id}')">Delete</button>`:''}
+    </div>`).join(''):'<div class="empty">No transfers found.</div>';
+}
+window.filterTransfers = () => renderTransfers();
+
+window.deleteTransfer = async (id) => {
+  if(!confirm('Delete this transfer?')) return;
+  try {
+    await deleteDoc(doc(db,'transfers',id));
+    allTransfers=allTransfers.filter(t=>t.id!==id);
+    toast('Deleted ✓','success'); renderTransfers();
+  } catch(e){ toast('Error','error'); }
+};
+
+// ─── NAV ───
+window.showPage = (page,el) => {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+page).classList.add('active');
+  if(el) el.classList.add('active');
+};
+window.closeModal = (id) => document.getElementById(id).classList.remove('open');
+
+function toast(msg,type='success'){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.className='show '+type;
+  setTimeout(()=>t.className='',3000);
+}
+
+// Category cards — single click = filter, double click = breakdown
+document.getElementById('cat-cards').addEventListener('click', e=>{
+  const card=e.target.closest('.dash-card'); if(!card) return;
+  const cat=card.querySelector('.dash-card-label').textContent;
+  // find full category name
+  const full=Object.keys(CAT_COLORS).find(k=>k.replace(' Equipment','')===cat)||cat+' Equipment';
+  showBreakdown('cat', full);
+});
+
+document.querySelectorAll('.modal-overlay, .breakdown-overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('open');}));
+document.getElementById('login-pass').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
+</script>
+</body>
+</html>
