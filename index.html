@@ -322,6 +322,15 @@ tr:hover td{background:var(--surface2);}
           </div>
         </div>
 
+        <!-- ACTIVE FILTERS BAR -->
+        <div id="active-filter-bar" style="display:none;flex-wrap:wrap;gap:8px;margin-bottom:12px;align-items:center;">
+          <span style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;">Active Filters:</span>
+          <span id="chip-od" style="display:none;background:rgba(240,165,0,.15);border:1px solid rgba(240,165,0,.4);border-radius:20px;padding:4px 10px;font-size:12px;color:var(--accent);cursor:pointer;" onclick="toggleOD(null)"></span>
+          <span id="chip-cat" style="display:none;background:rgba(88,166,255,.15);border:1px solid rgba(88,166,255,.4);border-radius:20px;padding:4px 10px;font-size:12px;color:#58a6ff;cursor:pointer;" onclick="toggleCat(null)"></span>
+          <span id="chip-proj" style="display:none;background:rgba(63,185,80,.15);border:1px solid rgba(63,185,80,.4);border-radius:20px;padding:4px 10px;font-size:12px;color:#3fb950;cursor:pointer;" onclick="toggleProj(null)"></span>
+          <span onclick="clearAllFilters()" style="font-size:11px;color:var(--text-muted);cursor:pointer;text-decoration:underline;margin-left:4px;">Clear all</span>
+        </div>
+
         <div class="dash-section-label">By Project — click to filter</div>
         <div class="proj-filter-wrap">
           <input class="proj-search" type="text" id="proj-search-input" placeholder="🔍  Search project..." oninput="filterProjList()">
@@ -1045,10 +1054,7 @@ tr:hover td{background:var(--surface2);}
       <!-- EQUIPMENT LIST -->
       <div class="page" id="page-equipment">
         <div class="section-title">Equipment List</div>
-        <div id="active-filter-bar" style="display: none;" class="active-filter-bar">
-          <span id="filter-bar-text">O.D: Eng. Ahmed Nezar</span>
-          <span class="clear-filter" onclick="clearAllFilters()">✕ Clear filter</span>
-        </div>
+
         <div class="toolbar">
           <input class="search-box" type="text" id="search-input" placeholder="🔍  Search by name, code, SAP, brand..." oninput="renderTable()">
           <select id="filter-cat" onchange="renderTable()"><option value="">All Categories</option><option>Compaction Equipment</option><option>Concrete Equipment</option><option>Earthmoving Equipment</option><option>Ground Engineering</option><option>Lifting Equipment</option><option>Power &amp; Utilities</option><option>Pumping Equipment</option><option>Special Equipment</option></select>
@@ -17626,7 +17632,7 @@ window.toggleOD = (od) => {
 };
 
 window.toggleCat = (cat) => {
-  multiFilter.cat = multiFilter.cat===cat ? null : cat;
+  multiFilter.cat = (cat===null || multiFilter.cat===cat) ? null : cat;
   renderDashboard();
   renderTable();
   renderCatBreakdown();
@@ -17645,11 +17651,15 @@ function renderCatBreakdown(){
   const total = base.length;
   const color = CAT_COLORS[cat]||'var(--accent)';
 
-  // Types breakdown
-  const typeCount={};
-  base.forEach(e=>{ if(e.equipment) typeCount[e.equipment]=(typeCount[e.equipment]||0)+1; });
-  const typesSorted = Object.entries(typeCount).sort((a,b)=>b[1]-a[1]).slice(0,8);
-  const maxT = typesSorted[0]?.[1]||1;
+  // Types breakdown with capacity
+  const typeData={};
+  base.forEach(e=>{
+    if(!e.equipment) return;
+    if(!typeData[e.equipment]) typeData[e.equipment]={count:0};
+    typeData[e.equipment].count++;
+  });
+  const typesSorted = Object.entries(typeData).sort((a,b)=>b[1].count-a[1].count).slice(0,8);
+  const maxT = typesSorted[0]?.[1]?.count||1;
 
   // OD breakdown
   const odCount={};
@@ -17660,16 +17670,24 @@ function renderCatBreakdown(){
   document.getElementById('cat-bd-title').textContent = cat.replace(' Equipment','');
   document.getElementById('cat-bd-total').textContent = total;
 
-  document.getElementById('cat-bd-types').innerHTML = typesSorted.map(([k,v],i)=>`
-    <div style="margin-bottom:8px;">
-      <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+  document.getElementById('cat-bd-types').innerHTML = typesSorted.map(([k,d],i)=>{
+    const v = d.count;
+    return `
+    <div style="margin-bottom:8px;cursor:pointer;border-radius:6px;padding:4px;transition:background .2s;" 
+         onmouseover="this.style.background='var(--surface2)'" 
+         onmouseout="this.style.background='transparent'"
+         onclick="showTypeDetail('${k.replace(/'/g,"\'")}','${cat.replace(/'/g,"\'")}')">
+      <div style="display:flex;justify-content:space-between;margin-bottom:3px;align-items:center;">
         <span style="font-size:12px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:70%">${k}</span>
-        <span style="font-size:12px;font-family:'JetBrains Mono',monospace;color:${color}">${v}</span>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span style="font-size:12px;font-family:'JetBrains Mono',monospace;color:${color}">${v}</span>
+          <span style="font-size:10px;color:var(--text-muted);">›</span>
+        </div>
       </div>
       <div style="height:6px;background:var(--surface2);border-radius:3px;overflow:hidden;">
         <div style="height:100%;width:${Math.round(v/maxT*100)}%;background:${color};border-radius:3px;transition:width .5s;"></div>
       </div>
-    </div>`).join('');
+    </div>`}).join('');
 
   document.getElementById('cat-bd-ods').innerHTML = odsSorted.map(([k,v],i)=>`
     <div style="margin-bottom:8px;">
@@ -17688,17 +17706,24 @@ function renderCatBreakdown(){
 window.selectOD = window.toggleOD;
 
 function updateFilterChips(){
-  const chips = [];
-  if(multiFilter.od) chips.push(`O.D: ${multiFilter.od}`);
-  if(multiFilter.cat) chips.push(`Cat: ${multiFilter.cat.replace(' Equipment','')}`);
-  if(multiFilter.proj) chips.push(`Project: ${multiFilter.proj}`);
   const bar = document.getElementById('active-filter-bar');
-  const txt = document.getElementById('filter-bar-text');
-  if(chips.length){
-    bar.style.display='flex';
-    txt.textContent = chips.join('  ·  ');
-  } else {
-    bar.style.display='none';
+  const chipOd  = document.getElementById('chip-od');
+  const chipCat = document.getElementById('chip-cat');
+  const chipProj= document.getElementById('chip-proj');
+  if(!bar) return;
+  const any = multiFilter.od||multiFilter.cat||multiFilter.proj;
+  bar.style.display = any ? 'flex' : 'none';
+  if(chipOd){
+    chipOd.style.display = multiFilter.od ? 'inline-flex' : 'none';
+    if(multiFilter.od) chipOd.textContent = '✕  O.D: '+multiFilter.od;
+  }
+  if(chipCat){
+    chipCat.style.display = multiFilter.cat ? 'inline-flex' : 'none';
+    if(multiFilter.cat) chipCat.textContent = '✕  '+multiFilter.cat.replace(' Equipment','');
+  }
+  if(chipProj){
+    chipProj.style.display = multiFilter.proj ? 'inline-flex' : 'none';
+    if(multiFilter.proj) chipProj.textContent = '✕  '+multiFilter.proj;
   }
 }
 // ─── PROJECT LIST ───
@@ -17718,9 +17743,10 @@ function renderProjList(filter=''){
 }
 window.filterProjList = () => renderProjList(document.getElementById('proj-search-input')?.value||'');
 window.toggleProj = (proj) => {
-  multiFilter.proj = multiFilter.proj===proj ? null : proj;
+  multiFilter.proj = (proj===null || multiFilter.proj===proj) ? null : proj;
   renderDashboard();
   renderTable();
+  renderCatBreakdown();
 };
 
 // Filter from dashboard (legacy compat)
@@ -18095,6 +18121,48 @@ window.importExcel = async (input) => {
   reader.readAsBinaryString(file);
 };
 
+// ─── TYPE DETAIL (capacity list) ───
+window.showTypeDetail = (type, cat) => {
+  // Get filtered equipment of this type
+  const base = allEquipment.filter(e=>{
+    if(multiFilter.od && e.od!==multiFilter.od) return false;
+    if(multiFilter.proj && e.project!==multiFilter.proj) return false;
+    return e.category===cat && e.equipment===type;
+  });
+
+  const color = CAT_COLORS[cat]||'var(--accent)';
+
+  // Group by power
+  const powerGroups={};
+  base.forEach(e=>{
+    const pw = String(e.power||'').trim()||'—';
+    if(!powerGroups[pw]) powerGroups[pw]=[];
+    powerGroups[pw].push(e);
+  });
+  const sorted = Object.entries(powerGroups).sort((a,b)=>b[1].length-a[1].length);
+
+  document.getElementById('type-detail-title').textContent = type;
+  document.getElementById('type-detail-sub').textContent = cat.replace(' Equipment','') + ' · ' + (multiFilter.proj||multiFilter.od||'All');
+  document.getElementById('type-detail-count').textContent = base.length;
+
+  document.getElementById('type-detail-content').innerHTML = sorted.map(([pw, items])=>`
+    <div style="margin-bottom:16px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border);">
+        <span style="font-size:13px;font-weight:700;color:${color};">⚡ ${pw==='—'?'No Power Data':pw}</span>
+        <span style="background:${color};color:#000;border-radius:10px;padding:1px 8px;font-size:11px;font-weight:700;">${items.length}</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+        ${items.map(e=>`
+          <div style="background:var(--surface2);border-radius:6px;padding:6px 10px;border:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:12px;font-family:'JetBrains Mono',monospace;color:var(--accent);">${e.code||'—'}</span>
+            <span style="font-size:11px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:55%;text-align:right;">${e.project||'—'}</span>
+          </div>`).join('')}
+      </div>
+    </div>`).join('');
+
+  document.getElementById('type-detail-modal').classList.add('open');
+};
+
 // ─── EQUIPMENT HISTORY ───
 window.showEquipHistory = (id) => {
   const eq = allEquipment.find(e=>e.id===id);
@@ -18176,6 +18244,21 @@ function updateTransferBadge(){
 document.querySelectorAll('.modal-overlay, .breakdown-overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('open');}));
 document.getElementById('login-pass').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
 </script>
+<!-- TYPE DETAIL MODAL -->
+<div class="breakdown-overlay" id="type-detail-modal">
+  <div class="breakdown-box" style="width:680px;max-height:85vh;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;">
+      <div>
+        <div class="breakdown-title" id="type-detail-title"></div>
+        <div class="breakdown-sub" id="type-detail-sub"></div>
+      </div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:700;color:var(--accent);" id="type-detail-count"></div>
+    </div>
+    <div id="type-detail-content" style="overflow-y:auto;max-height:60vh;"></div>
+    <button class="breakdown-close" onclick="document.getElementById('type-detail-modal').classList.remove('open')">Close</button>
+  </div>
+</div>
+
 <!-- EQUIPMENT HISTORY MODAL -->
 <div class="breakdown-overlay" id="history-modal">
   <div class="breakdown-box" style="width:620px;">
